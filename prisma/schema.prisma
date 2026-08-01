@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMINISTRATOR
+  REGISTRATION_STAFF
+  CHECKIN_STAFF
+  FINANCE
+}
+
+enum EventStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ArrivalStatus {
+  EXPECTED
+  CHECKED_IN
+  CHECKED_OUT
+  LATE_ARRIVAL
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  ONLINE
+  OTHER
+}
+
+enum RegistrationSource {
+  ONLINE
+  WALK_IN
+  PHONE
+  STAFF
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  colorHex  String?  @default("#6366f1")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users  User[]
+  events Event[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  role           Role     @default(REGISTRATION_STAFF)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  auditLogs      AuditLog[]
+  notesCreated   Note[]
+  paymentsHandled Payment[]
+}
+
+model Event {
+  id                   String      @id @default(cuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  name                 String
+  description          String?
+  venue                String?
+  address              String?
+  organizer            String?
+  startDate            DateTime
+  endDate              DateTime
+  maxCapacity          Int?
+  registrationDeadline DateTime?
+  status               EventStatus @default(DRAFT)
+  bannerImageUrl       String?
+  notes                String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  participants Participant[]
+}
+
+model Participant {
+  id                 String   @id @default(cuid())
+  eventId            String
+  event              Event    @relation(fields: [eventId], references: [id])
+  firstName          String
+  lastName           String
+  gender             String?
+  dateOfBirth        DateTime?
+  phone              String?
+  email              String?
+  address            String?
+  city               String?
+  country            String?
+  church             String?
+  organization       String?
+  company            String?
+  groupName          String?
+  ticketType         String?
+  photoUrl           String?
+  emergencyContact   String?
+  emergencyPhone     String?
+  accommodation      String?
+  mealPreference     String?
+  transportation     String?
+  medicalInfo        String?
+  allergies          String?
+  consentGiven       Boolean  @default(false)
+  registrationSource RegistrationSource @default(ONLINE)
+  registrationDate   DateTime @default(now())
+  arrivalStatus      ArrivalStatus @default(EXPECTED)
+  checkedInAt        DateTime?
+  checkedOutAt       DateTime?
+  checkedInBy        String?
+  badgePrinted       Boolean  @default(false)
+  amountDue          Float    @default(0)
+  amountPaid         Float    @default(0)
+  paymentStatus      PaymentStatus @default(UNPAID)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  payments Payment[]
+  notes    Note[]
+  files    File[]
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  participantId   String
+  participant     Participant @relation(fields: [participantId], references: [id])
+  amount          Float
+  method          PaymentMethod @default(CASH)
+  transactionRef  String?
+  receiptNumber   String?
+  paymentDate     DateTime @default(now())
+  receivedById    String?
+  receivedBy      User?    @relation(fields: [receivedById], references: [id])
+  isRefund        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model Note {
+  id            String   @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  category      String
+  priority      String   @default("normal")
+  content       String
+  staffId       String?
+  staff         User?    @relation(fields: [staffId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model File {
+  id            String   @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  fileName      String
+  fileUrl       String
+  fileType      String?
+  uploadedAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+}
