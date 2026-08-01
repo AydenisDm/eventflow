@@ -1,13 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
-import { Camera, Save, KeyRound } from "lucide-react";
+import { Camera, Save, KeyRound, Loader2 } from "lucide-react";
+import { updateUserProfile, updateUserPassword } from "@/lib/actions";
 
 export default function ProfilePage() {
   const { data: session } = useSession();
-  const [name, setName] = useState(session?.user?.name ?? "Ayden Dimitrov");
-  const [email] = useState(session?.user?.email ?? "ayden@eventflow.io");
+  const [name, setName] = useState(session?.user?.name ?? "");
+  const [email] = useState(session?.user?.email ?? "");
+  const [isSavingProfile, startSaveProfile] = useTransition();
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isSavingPassword, startSavePassword] = useTransition();
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  function handleSaveProfile() {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    startSaveProfile(async () => {
+      await updateUserProfile(userId, { name });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    });
+  }
+
+  function handleUpdatePassword() {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    if (!newPassword || newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    setPasswordError("");
+    startSavePassword(async () => {
+      await updateUserPassword(userId, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 2000);
+    });
+  }
 
   return (
     <div className="p-6 max-w-2xl space-y-6">
@@ -17,7 +53,6 @@ export default function ProfilePage() {
           Manage your personal account information
         </p>
       </div>
-
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -33,7 +68,6 @@ export default function ProfilePage() {
             <p className="text-sm text-zinc-400">{email}</p>
           </div>
         </div>
-
         <div className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-1.5">Full Name</label>
@@ -53,13 +87,16 @@ export default function ProfilePage() {
               className="w-full rounded-lg bg-zinc-900/50 border border-zinc-800 px-3 py-2 text-sm text-zinc-500 cursor-not-allowed"
             />
           </div>
-          <button className="flex items-center gap-2 rounded-lg bg-white text-black px-4 py-2 text-sm font-medium hover:bg-zinc-200 transition">
-            <Save className="h-4 w-4" />
-            Save Changes
+          <button
+            onClick={handleSaveProfile}
+            disabled={isSavingProfile}
+            className="flex items-center gap-2 rounded-lg bg-white text-black px-4 py-2 text-sm font-medium hover:bg-zinc-200 transition disabled:opacity-60"
+          >
+            {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {profileSaved ? "Saved!" : "Save Changes"}
           </button>
         </div>
       </div>
-
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
         <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
           <KeyRound className="h-4 w-4" />
@@ -70,6 +107,8 @@ export default function ProfilePage() {
             <label className="block text-sm font-medium text-zinc-300 mb-1.5">Current Password</label>
             <input
               type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-zinc-600"
             />
@@ -78,12 +117,19 @@ export default function ProfilePage() {
             <label className="block text-sm font-medium text-zinc-300 mb-1.5">New Password</label>
             <input
               type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-zinc-600"
             />
           </div>
-          <button className="rounded-lg border border-zinc-700 text-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-800 transition">
-            Update Password
+          {passwordError && <p className="text-sm text-red-400">{passwordError}</p>}
+          <button
+            onClick={handleUpdatePassword}
+            disabled={isSavingPassword}
+            className="rounded-lg border border-zinc-700 text-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-800 transition disabled:opacity-60"
+          >
+            {isSavingPassword ? "Updating..." : passwordSaved ? "Password Updated!" : "Update Password"}
           </button>
         </div>
       </div>
