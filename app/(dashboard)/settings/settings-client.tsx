@@ -3,9 +3,8 @@
 import { useState, useTransition } from "react";
 import { Building2, Bell, CreditCard, Palette, Save, Loader2 } from "lucide-react";
 import {
-  updateOrganization,
-  updateUserProfile,
-  updateUserPassword,
+  updateOrganizationValidated as updateOrganization,
+  updateUserProfileValidated as updateUserProfile,
 } from "@/lib/actions";
 
 const tabs = [
@@ -33,12 +32,18 @@ export default function SettingsClient({ organization, currentUser }: SettingsCl
     "Product updates and announcements": false,
   });
 
-  function handleSaveOrganization() {
+  const [orgError, setOrgError] = useState("");
+    function handleSaveOrganization() {
     if (!organization) return;
+    setOrgError("");
     startTransition(async () => {
-      await updateOrganization(organization.id, { name: orgName, colorHex });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      try {
+        await updateOrganization(organization.id, { name: orgName, colorHex });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch (err) {
+        setOrgError(err instanceof Error ? err.message : "Failed to save changes.");
+      }
     });
   }
 
@@ -97,6 +102,7 @@ export default function SettingsClient({ organization, currentUser }: SettingsCl
                   <option>America/New_York (GMT-5)</option>
                 </select>
               </div>
+              {orgError && <p className="text-sm text-red-400">{orgError}</p>}
               <button
                 onClick={handleSaveOrganization}
                 disabled={isPending}
