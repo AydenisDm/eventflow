@@ -319,3 +319,94 @@ export async function updateUserPassword(userId: string, newPassword: string) {
   });
   return { success: true };
 }
+
+}
+
+// ---------- VALIDATION HELPERS ----------
+
+export async function updateOrganizationValidated(
+  organizationId: string,
+  input: { name: string; colorHex?: string; logoUrl?: string }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized: you must be signed in.");
+  }
+  if ((session.user as any).organizationId !== organizationId) {
+    throw new Error("Unauthorized: you cannot edit another organization.");
+  }
+  if (!input.name || input.name.trim().length < 2) {
+    throw new Error("Organization name must be at least 2 characters.");
+  }
+  if (input.colorHex && !/^#[0-9A-Fa-f]{6}$/.test(input.colorHex)) {
+    throw new Error("Invalid color format. Use a hex code like #6366f1.");
+  }
+  const updated = await prisma.organization.update({
+    where: { id: organizationId },
+    data: {
+      name: input.name.trim(),
+      colorHex: input.colorHex,
+      logoUrl: input.logoUrl,
+    },
+  });
+  revalidatePath("/settings");
+  return updated;
+}
+
+export async function updateUserProfileValidated(
+  userId: string,
+  input: { name: string; avatarUrl?: string }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized: you must be signed in.");
+  }
+  if (session.user.id !== userId) {
+    throw new Error("Unauthorized: you can only edit your own profile.");
+  }
+  if (!input.name || input.name.trim().length < 2) {
+    throw new Error("Name must be at least 2 characters.");
+  }
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { name: input.name.trim(), avatarUrl: input.avatarUrl },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/profile");
+  return updated;
+}
+
+export async function updateUserPasswordValidated(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized: you must be signed in.");
+  }
+  if (session.user.id !== userId) {
+    throw new Error("Unauthorized: you can only change your own password.");
+  }
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error("New password must be at least 8 characters.");
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new Error("User not found.");
+  }
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValid) {
+    throw new Error("Current password is incorrect.");
+  }
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+  await prisma.auditLog.create({
+    data: { userId, action: "PASSWORD_CHANGE", entity: "User", entityId: userId },
+  });
+  return { success: true };
+
+}
