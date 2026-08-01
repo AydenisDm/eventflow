@@ -254,3 +254,68 @@ export async function getAttendanceBreakdown() {
     { name: "Pending", value: pending },
   ];
 }
+
+
+// ---------- SETTINGS ----------
+
+export async function getOrganization() {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { organization: true },
+  });
+  return user?.organization ?? null;
+}
+
+export async function updateOrganization(
+  organizationId: string,
+  input: { name: string; colorHex?: string; logoUrl?: string }
+) {
+  const updated = await prisma.organization.update({
+    where: { id: organizationId },
+    data: {
+      name: input.name,
+      colorHex: input.colorHex,
+      logoUrl: input.logoUrl,
+    },
+  });
+  revalidatePath("/settings");
+  return updated;
+}
+
+export async function getCurrentUserProfile() {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return null;
+  return prisma.user.findUnique({
+    where: { id: userId },
+    include: { organization: true },
+  });
+}
+
+export async function updateUserProfile(
+  userId: string,
+  input: { name: string; avatarUrl?: string }
+) {
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { name: input.name, avatarUrl: input.avatarUrl },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/profile");
+  return updated;
+}
+
+export async function updateUserPassword(userId: string, newPassword: string) {
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+  await prisma.auditLog.create({
+    data: { userId, action: "PASSWORD_CHANGE", entity: "User", entityId: userId },
+  });
+  return { success: true };
+}
