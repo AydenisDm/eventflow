@@ -320,7 +320,6 @@ export async function updateUserPassword(userId: string, newPassword: string) {
   return { success: true };
 }
 
-}
 
 // ---------- VALIDATION HELPERS ----------
 
