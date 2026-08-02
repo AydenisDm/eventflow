@@ -31,135 +31,122 @@ export default function SettingsClient({ organization, currentUser }: SettingsCl
     "Weekly summary reports": true,
     "Product updates and announcements": false,
   });
-
   const [orgError, setOrgError] = useState("");
-    function handleSaveOrganization() {
-    if (!organization) return;
+
+  function handleSaveOrganization() {
     setOrgError("");
     startTransition(async () => {
       try {
+        if (!organization) return;
         await updateOrganization(organization.id, { name: orgName, colorHex });
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } catch (err) {
-        setOrgError(err instanceof Error ? err.message : "Failed to save changes.");
+        setOrgError(err instanceof Error ? err.message : "Failed to update organization");
       }
     });
   }
 
+  function handleSaveProfile() {
+    startTransition(async () => {
+      try {
+        if (!currentUser) return;
+        await updateUserProfile(currentUser.id, { name: currentUser.name });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  function toggleNotif(key: string) {
+    setNotifPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Settings</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Manage your organization preferences and configuration
-        </p>
-      </div>
-      <div className="flex gap-6">
-        <div className="w-48 shrink-0 space-y-1">
-          {tabs.map((tab) => (
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-6">Settings</h1>
+
+      <div className="flex gap-2 border-b mb-6">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              <tab.icon className="h-4 w-4" />
+              <Icon size={16} />
               {tab.label}
             </button>
+          );
+        })}
+      </div>
+
+      {activeTab === "organization" && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Organization name</label>
+            <input
+              type="text"
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Brand color</label>
+            <input
+              type="color"
+              value={colorHex}
+              onChange={(e) => setColorHex(e.target.value)}
+              className="h-10 w-20 border rounded"
+            />
+          </div>
+          {orgError && <p className="text-red-600 text-sm">{orgError}</p>}
+          <button
+            onClick={handleSaveOrganization}
+            disabled={isPending}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            {isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saved ? "Saved!" : "Save changes"}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "notifications" && (
+        <div className="space-y-3">
+          {Object.keys(notifPrefs).map((key) => (
+            <label key={key} className="flex items-center justify-between border rounded px-4 py-3">
+              <span>{key}</span>
+              <input
+                type="checkbox"
+                checked={notifPrefs[key]}
+                onChange={() => toggleNotif(key)}
+              />
+            </label>
           ))}
         </div>
-        <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          {activeTab === "organization" && (
-            <div className="space-y-5">
-              <h2 className="text-sm font-medium text-white">Organization Details</h2>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-1.5">Organization Name</label>
-                <input
-                  type="text"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-zinc-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-1.5">Brand Color</label>
-                <input
-                  type="color"
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  className="h-10 w-20 rounded-lg bg-zinc-900 border border-zinc-800"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-1.5">Timezone</label>
-                <select className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-zinc-600">
-                  <option>Europe/Sofia (GMT+2)</option>
-                  <option>UTC</option>
-                  <option>America/New_York (GMT-5)</option>
-                </select>
-              </div>
-              {orgError && <p className="text-sm text-red-400">{orgError}</p>}
-              <button
-                onClick={handleSaveOrganization}
-                disabled={isPending}
-                className="flex items-center gap-2 rounded-lg bg-white text-black px-4 py-2 text-sm font-medium hover:bg-zinc-200 transition disabled:opacity-60"
-              >
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saved ? "Saved!" : "Save Changes"}
-              </button>
-            </div>
-          )}
-          {activeTab === "notifications" && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-medium text-white mb-2">Notification Preferences</h2>
-              {Object.keys(notifPrefs).map((label) => (
-                <label key={label} className="flex items-center justify-between rounded-lg border border-zinc-800 px-4 py-3">
-                  <span className="text-sm text-zinc-300">{label}</span>
-                  <input
-                    type="checkbox"
-                    checked={notifPrefs[label]}
-                    onChange={() =>
-                      setNotifPrefs((prev) => ({ ...prev, [label]: !prev[label] }))
-                    }
-                    className="h-4 w-4 accent-white"
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-          {activeTab === "billing" && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-medium text-white mb-2">Billing Plan</h2>
-              <div className="rounded-lg border border-zinc-800 p-4">
-                <p className="text-white font-medium">Pro Plan</p>
-                <p className="text-sm text-zinc-400 mt-1">$49/month · Renews next billing cycle</p>
-              </div>
-              <button className="rounded-lg border border-zinc-700 text-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-800 transition">
-                Manage Subscription
-              </button>
-            </div>
-          )}
-          {activeTab === "appearance" && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-medium text-white mb-2">Theme</h2>
-              <div className="flex gap-3">
-                {["Dark", "Light", "System"].map((theme) => (
-                  <button
-                    key={theme}
-                    className="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition"
-                  >
-                    {theme}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+      )}
+
+      {activeTab === "billing" && (
+        <div className="space-y-4">
+          <p className="text-gray-600">Manage your subscription and payment methods.</p>
+          <button className="bg-gray-800 text-white px-4 py-2 rounded">Manage billing</button>
         </div>
-      </div>
+      )}
+
+      {activeTab === "appearance" && (
+        <div className="space-y-4">
+          <p className="text-gray-600">Theme preferences coming soon.</p>
+        </div>
+      )}
     </div>
   );
 }
